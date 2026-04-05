@@ -1,0 +1,36 @@
+name: ESP32 Build
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install arduino-cli
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+          echo "$HOME/bin" >> $GITHUB_PATH
+      - name: Setup ESP32
+        run: |
+          arduino-cli config init
+          arduino-cli config add board_manager.additional_urls https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+          arduino-cli core update-index
+          arduino-cli core install esp32:esp32
+      - name: Install libraries
+        run: |
+          arduino-cli lib install "TFT_eSPI"
+          arduino-cli lib install "TJpg_Decoder"
+          arduino-cli lib install "NimBLE-Arduino"
+      - name: Patch User_Setup.h
+        run: |
+          TFTPATH=$(find ~/Arduino/libraries/TFT_eSPI -name "User_Setup.h" 2>/dev/null | head -1)
+          if [ -n "$TFTPATH" ]; then cp sketch/User_Setup.h "$TFTPATH"; fi
+      - name: Compile
+        run: |
+          arduino-cli compile --fqbn esp32:esp32:esp32 --output-dir build sketch/RomaOS/RomaOS.ino
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: build/*.bin
+          retention-days: 7
